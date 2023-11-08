@@ -5,3 +5,4 @@ venv
 
 data
 output
+tests/.pytest_cache

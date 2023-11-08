@@ -4,7 +4,8 @@ import json
 import logging
 import os
 import shutil
-from datetime import date
+import time
+from datetime import date, datetime
 
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
@@ -14,7 +15,8 @@ from datamodels import User, Tweet, UserByDate, get_latest_dated_user
 from userstats import create_stats
 
 
-def main(input_path: str, output_path: str, end_date: date, spark_memory: str):
+def main(input_path: str, output_path: str, end_date: date, spark_memory: str,
+         persist: bool, n_cores: str):
     if not output_path:
         output_path = "output/" + input_path
         logging.warning(f"No output path given. It will be %s", output_path)
@@ -23,13 +25,17 @@ def main(input_path: str, output_path: str, end_date: date, spark_memory: str):
         shutil.rmtree(output_path)
 
     conf = SparkConf() \
+        .set("spark.executor.memory", "4G") \
         .set("spark.driver.memory", spark_memory) \
-        .setMaster("local[*]")
+        .setMaster(f"local[{n_cores}]")
     sc = SparkContext(conf=conf)
 
+    start = time.perf_counter()
+
     tweets = sc.textFile(input_path) \
-        .map(Tweet.from_json) \
-        .persist(StorageLevel.MEMORY_AND_DISK)
+        .map(Tweet.from_json)
+    if persist:
+        tweets = tweets.persist(StorageLevel.MEMORY_AND_DISK)
 
     if not end_date:
         logging.warning("'end_date' was not given as an argument, so it will be "
@@ -46,7 +52,7 @@ def main(input_path: str, output_path: str, end_date: date, spark_memory: str):
         .reduceByKey(get_latest_dated_user) \
         .mapValues(UserByDate.get_user)
 
-    tweets_by_user = tweets.groupBy(Tweet.get_author_id)
+    tweets_by_user = tweets.map(Tweet.drop_includes).groupBy(Tweet.get_author_id)
 
     latest_user_info.join(tweets_by_user) \
         .mapValues(lambda user_and_tweets:
@@ -55,16 +61,18 @@ def main(input_path: str, output_path: str, end_date: date, spark_memory: str):
         .map(json.dumps) \
         .saveAsTextFile(output_path)
 
+    print('Finished in ', time.perf_counter() - start)
+
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("input_path",
                             help="Input file. For multiple, use a glob pattern.")
-    arg_parser.add_argument("-o", "--output_path",
+    arg_parser.add_argument("--output-path",
                             required=False,
                             default=None,
                             help="Path for output folder.")
-    arg_parser.add_argument("-d", "--end_date",
+    arg_parser.add_argument("--end-date",
                             required=False,
                             default=None,
                             help="Latest date for tweets in the sample. The app is "
@@ -72,8 +80,16 @@ if __name__ == '__main__':
     arg_parser.add_argument("--spark-memory",
                             required=False,
                             default="12G",
-                            help="Command-line argument to set Spark driver memory "
-                                 "which stores RDDs in local mode.")
+                            help="Sets Spark driver memory which stores RDDs in local "
+                                 "mode. Will be overruled by other values given if "
+                                 "the app is run with 'spark-submit'.")
+    arg_parser.add_argument("--no-persistence",
+                            action="store_true"
+                            )
+    arg_parser.add_argument("--n-cores",
+                            default='*')
     args = arg_parser.parse_args()
 
-    main(args.input_path, args.output_path, args.end_date, args.spark_memory)
+    end_date_arg = None if not args.end_date else datetime.fromisoformat(args.end_date)
+    main(args.input_path, args.output_path, end_date_arg, args.spark_memory,
+         not args.no_persistence, args.n_cores)

@@ -85,10 +85,14 @@ class TweetPublicMetrics:
 class Tweet:
     id: str
     text: str
-    # public_metrics: TweetPublicMetrics
+    public_metrics: TweetPublicMetrics
     created_at: date
     author_id: str
     includes: Includes
+
+    def drop_includes(self):
+        self.includes = None
+        return self
 
     def get_author_id(self):
         return self.author_id

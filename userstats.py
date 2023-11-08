@@ -1,6 +1,8 @@
+import logging
 import re
+import dacy.datasets
 from collections import Counter
-from datetime import date
+from datetime import date, datetime
 from typing import List
 
 from datamodels import User, Tweet
@@ -56,7 +58,13 @@ def latest_tweet(tweets: List[Tweet]):
     return max(tweets, key=Tweet.get_creation_date)
 
 
-def average_daily_tweets(n_tweets: int, start_date: date, end_date: date):
+def average_daily_tweets(n_tweets: int, start_date: datetime, end_date: datetime):
+    start_date = start_date.date()
+    end_date = end_date.date()
+    if start_date > end_date:
+        raise ValueError(
+            f"Start date {start_date} is later than the end date {end_date}!"
+        )
     time_delta = end_date - start_date
     return n_tweets / (time_delta.days + 1)
 
@@ -68,9 +76,15 @@ def get_hashtags(tweets: List[Tweet]):
     return [match for tweet in tweets for match in re.findall(hashtag, tweet.text)]
 
 
-proper_name = re.compile("([A-Z][a-z]+ ?){2,}")
+first_names = {n.lower() for n in dacy.datasets.danish_names()["first_name"]}
+last_names = {n.lower() for n in dacy.datasets.danish_names()["last_name"]}
+proper_name = re.compile(r"[A-Z]?[a-z]+")
 
 
 def is_identifiable(name: str):
-    match = proper_name.match(name)
-    return match is not None
+    matches = proper_name.findall(name)
+    if matches is None:
+        return False
+    has_first_name = any(name.strip().lower() in first_names for name in matches)
+    has_last_name = any(name.strip().lower() in last_names for name in matches)
+    return has_first_name and has_last_name
