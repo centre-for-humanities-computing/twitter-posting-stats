@@ -78,7 +78,8 @@ def get_hashtags(tweets: List[Tweet]):
 
 first_names = {n.lower() for n in dacy.datasets.danish_names()["first_name"]}
 last_names = {n.lower() for n in dacy.datasets.danish_names()["last_name"]}
-proper_name = re.compile(r"[A-Z]?[a-z]+")
+# chars in regex is based on what are in the above name lists
+proper_name = re.compile(r"[A-ZÆØÅÉÜ'-]?[a-zæøåéü'-]+")
 
 
 def is_identifiable(name: str):

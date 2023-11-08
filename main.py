@@ -6,6 +6,7 @@ import os
 import shutil
 import time
 from datetime import date, datetime
+from functools import partial
 
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
@@ -54,11 +55,13 @@ def main(input_path: str, output_path: str, end_date: date, spark_memory: str,
 
     tweets_by_user = tweets.map(Tweet.drop_includes).groupBy(Tweet.get_author_id)
 
+    json_dumps = partial(json.dumps, ensure_ascii=False)
+
     latest_user_info.join(tweets_by_user) \
         .mapValues(lambda user_and_tweets:
                    create_stats(user_and_tweets[0], user_and_tweets[1], end_date)) \
         .values() \
-        .map(json.dumps) \
+        .map(json_dumps) \
         .saveAsTextFile(output_path)
 
     print('Finished in ', time.perf_counter() - start)

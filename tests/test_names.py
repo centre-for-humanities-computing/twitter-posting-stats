@@ -5,6 +5,7 @@ class TestIsIdentifiable:
     def test_regular_danish_names(self):
         assert is_identifiable("Anders Bendtsen")
         assert is_identifiable("Claus Degn Eriksen")
+        assert is_identifiable("Søren Bækgaard")  # with special characters
 
     def test_with_emojis(self):
         assert is_identifiable("Anders Bendtsen 💙💛")
@@ -20,6 +21,7 @@ class TestIsIdentifiable:
 
     def test_foreign_names(self):
         assert is_identifiable("Arthur Nilsson")  # Swedish last name
+        assert is_identifiable("Arthur Krüger")  # German last name, special character
         assert not is_identifiable("Arthur Cameron")  # English name
 
     def test_single_name(self):
