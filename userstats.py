@@ -1,14 +1,13 @@
-import logging
 import re
 import dacy.datasets
 from collections import Counter
-from datetime import date, datetime
+from datetime import datetime
 from typing import List
 
 from datamodels import User, Tweet
 
 
-def create_stats(user: User, tweets: List[Tweet], end_date: date):
+def create_stats(user: User, tweets: List[Tweet], end_date: datetime):
     # Account creation date (possible?)
     creation_date = user.created_at
 
