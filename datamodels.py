@@ -1,6 +1,4 @@
 import datetime
-import json
-import logging
 from datetime import date, datetime
 from dataclasses import dataclass
 
@@ -49,7 +47,7 @@ class User:
         return self.created_at
 
 
-@dataclass
+@dataclass(frozen=True)
 class UserByDate:
     date: date
     user: User
@@ -82,7 +80,7 @@ class TweetPublicMetrics:
 
 
 @dataclass_json
-@dataclass()
+@dataclass(frozen=True)
 class Tweet:
     id: str
     text: str
@@ -108,7 +106,9 @@ class Tweet:
         for user in self.get_users():
             if user.id == self.author_id:
                 return UserByDate(self.created_at, user)
-        raise ValueError("No included users correspond to author of this tweet.")
+        raise ValueError(
+            f"No included users correspond to author of tweet {self.id}."
+        )
 
     def tweet_collection(self):
         return TweetCollection([self.minimal_tweet()], self.get_dated_author())

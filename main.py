@@ -24,6 +24,10 @@ def none_if_error(func):
     return skip_errors_func
 
 
+def is_not_none(obj):
+    return obj is not None
+
+
 def main(input_path: str, output_path: str, end_date: date, spark_memory: str,
          n_cores: str):
     if not output_path:
@@ -43,7 +47,7 @@ def main(input_path: str, output_path: str, end_date: date, spark_memory: str,
 
     tweets = sc.textFile(input_path) \
         .map(none_if_error(Tweet.from_json)) \
-        .filter(lambda o: o is not None)
+        .filter(is_not_none)
     # if persist:
     #     tweets = tweets.persist(StorageLevel.MEMORY_AND_DISK)
 
@@ -54,7 +58,8 @@ def main(input_path: str, output_path: str, end_date: date, spark_memory: str,
         logging.warning("'end_date' is %s. You can use this if you need to run "
                         "the app again.", end_date)
 
-    tweets.map(Tweet.tweet_collection) \
+    tweets.map(none_if_error(Tweet.tweet_collection)) \
+        .filter(is_not_none) \
         .keyBy(TweetCollection.get_user_id) \
         .reduceByKey(merge_tweet_collections) \
         .mapValues(lambda tweet_collection:
