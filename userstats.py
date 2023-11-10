@@ -2,9 +2,9 @@ import re
 import dacy.datasets
 from collections import Counter
 from datetime import datetime
-from typing import List
+from typing import List, Union
 
-from datamodels import User, Tweet
+from datamodels import User, Tweet, MinimalTweet
 
 
 def create_stats(user: User, tweets: List[Tweet], end_date: datetime):
@@ -49,11 +49,11 @@ def create_stats(user: User, tweets: List[Tweet], end_date: datetime):
     }
 
 
-def earliest_tweet(tweets: List[Tweet]):
+def earliest_tweet(tweets: List[Union[Tweet, MinimalTweet]]):
     return min(tweets, key=Tweet.get_creation_date)
 
 
-def latest_tweet(tweets: List[Tweet]):
+def latest_tweet(tweets: List[Union[Tweet, MinimalTweet]]):
     return max(tweets, key=Tweet.get_creation_date)
 
 
@@ -68,7 +68,7 @@ def average_daily_tweets(n_tweets: int, start_date: datetime, end_date: datetime
     return n_tweets / (time_delta.days + 1)
 
 
-hashtag = re.compile(r"#\w+")
+hashtag = re.compile(r"#(?!\d)\w+")
 
 
 def get_hashtags(tweets: List[Tweet]):
@@ -82,6 +82,11 @@ proper_name = re.compile(r"[A-ZÆØÅÉÜ'-]?[a-zæøåéü'-]+")
 
 
 def is_identifiable(name: str):
+    """
+    Deems whether a name is identifiable based on a predefined list of Danish names.
+    :param name:
+    :return: True if deemed identifiable, False otherwise
+    """
     matches = proper_name.findall(name)
     if matches is None:
         return False

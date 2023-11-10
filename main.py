@@ -48,8 +48,6 @@ def main(input_path: str, output_path: str, end_date: date, spark_memory: str,
     tweets = sc.textFile(input_path) \
         .map(none_if_error(Tweet.from_json)) \
         .filter(is_not_none)
-    # if persist:
-    #     tweets = tweets.persist(StorageLevel.MEMORY_AND_DISK)
 
     if not end_date:
         logging.warning("'end_date' was not given as an argument, so it will be "
@@ -95,8 +93,19 @@ if __name__ == '__main__':
                                  "mode. Will be overruled by other values given if "
                                  "the app is run with 'spark-submit'.")
     arg_parser.add_argument("--n-cores",
-                            default='*')
+                            default='*',
+                            help="Sets number of cores that Spark will use in local "
+                                 "mode. Will be overruled by other values given if "
+                                 "the app is run with 'spark-submit'."
+                            )
     args = arg_parser.parse_args()
 
     end_date_arg = None if not args.end_date else datetime.fromisoformat(args.end_date)
-    main(args.input_path, args.output_path, end_date_arg, args.spark_memory, args.n_cores)
+
+    main(
+        args.input_path,
+        args.output_path,
+        end_date_arg,
+        args.spark_memory,
+        args.n_cores
+    )

@@ -6,6 +6,7 @@ import dataclasses_json
 from dataclasses_json import dataclass_json
 from typing import List, Optional
 
+# Sets decoding format for JSON deserialization of dates in tweets
 date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
 dataclasses_json.cfg.global_config.decoders[datetime] = \
     lambda d: datetime.strptime(d, date_format)
@@ -27,18 +28,10 @@ class User:
     username: str
     verified: bool
     public_metrics: UserPublicMetrics
-    # description: str
+    description: str
     protected: bool
     name: str
-
-    # location: str
-    # profile_image_url: str
     created_at: datetime
-
-    # entities: Dict[str, List[Entity]]
-    # pinned_tweet_id: Optional[str] = None
-
-    # url: Optional[str] = None
 
     def get_id(self):
         return self.get_id
@@ -59,10 +52,6 @@ class UserByDate:
         return self.user
 
 
-def get_latest_dated_user(user1: UserByDate, user2: UserByDate):
-    return max(user1, user2, key=lambda u: u.date)
-
-
 @dataclass_json
 @dataclass(frozen=True)
 class Includes:
@@ -79,15 +68,13 @@ class TweetPublicMetrics:
     impression_count: Optional[int] = -1
 
 
-@dataclass_json
 @dataclass(frozen=True)
-class Tweet:
+class MinimalTweet:
     id: str
     text: str
     public_metrics: TweetPublicMetrics
     created_at: datetime
     author_id: str
-    includes: Includes
 
     def get_author_id(self):
         return self.author_id
@@ -95,10 +82,19 @@ class Tweet:
     def get_creation_date(self):
         return self.created_at
 
+
+@dataclass_json
+@dataclass(frozen=True)
+class Tweet(MinimalTweet):
+    includes: Includes
+
     def get_users(self):
         return self.includes.users
 
     def minimal_tweet(self):
+        """
+        :return: a :class:`MinimalTweet` from this Tweet object.
+        """
         return MinimalTweet(self.id, self.text, self.public_metrics, self.created_at,
                             self.author_id)
 
@@ -115,15 +111,6 @@ class Tweet:
 
 
 @dataclass
-class MinimalTweet:
-    id: str
-    text: str
-    public_metrics: TweetPublicMetrics
-    created_at: datetime
-    author_id: str
-
-
-@dataclass
 class TweetCollection:
     tweets: List[MinimalTweet]
     dated_user: UserByDate
@@ -135,9 +122,24 @@ class TweetCollection:
         return self.dated_user.get_user_id()
 
 
+def latest_dated_user(user1: UserByDate, user2: UserByDate):
+    return max(user1, user2, key=lambda u: u.date)
+
+
 def merge_tweet_collections(coll1: TweetCollection, coll2: TweetCollection) \
         -> TweetCollection:
+    """
+    Merges two :class:`TweetCollection`s into one. Favours the latest dated user.
+
+    Raises a ValueError if the users do not have the same ID.
+    :param coll1:
+    :param coll2:
+    :return: a new, merged :class:`TweetCollection`
+    """
+    if coll1.get_user_id() != coll2.get_user_id():
+        raise ValueError("Cannot merge Tweet collections from different users.")
+
     return TweetCollection(
         coll1.tweets + coll2.tweets,
-        max(coll1.dated_user, coll2.dated_user, key=lambda u: u.date)
+        latest_dated_user(coll1.dated_user, coll2.dated_user)
     )
