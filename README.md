@@ -9,7 +9,7 @@ and more machines.
 The input data should be line-delimited JSON files of Tweets as scraped via the Twitter
 API. The Tweet objects should contain these fields as a minimum in this format:
 
-```json
+```
 {
   "id": str,
   "text": str,
