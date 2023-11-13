@@ -28,20 +28,13 @@ def is_not_none(obj):
     return obj is not None
 
 
-def main(input_path: str, output_path: str, end_date: date, spark_memory: str,
-         n_cores: str):
+def main(input_path: str, output_path: str, end_date: date, sc: SparkContext):
     if not output_path:
         output_path = "output/" + input_path
         logging.warning(f"No output path given. It will be %s", output_path)
     if os.path.exists(output_path):
         logging.warning(f"Removing %s", output_path)
         shutil.rmtree(output_path)
-
-    conf = SparkConf() \
-        .set("spark.executor.memory", "4G") \
-        .set("spark.driver.memory", spark_memory) \
-        .setMaster(f"local[{n_cores}]")
-    sc = SparkContext(conf=conf)
 
     start = time.perf_counter()
 
@@ -86,26 +79,36 @@ if __name__ == '__main__':
                             default=None,
                             help="Latest date for tweets in the sample. The app is "
                                  "significantly faster with this argument provided.")
-    arg_parser.add_argument("--spark-memory",
+    arg_parser.add_argument("--spark-driver-memory",
                             required=False,
                             default="12G",
                             help="Sets Spark driver memory which stores RDDs in local "
-                                 "mode. Will be overruled by other values given if "
-                                 "the app is run with 'spark-submit'.")
+                                 "mode. Use the '-n' flag to ignore this argument if "
+                                 "using spark-submit.")
     arg_parser.add_argument("--n-cores",
                             default='*',
                             help="Sets number of cores that Spark will use in local "
-                                 "mode. Will be overruled by other values given if "
-                                 "the app is run with 'spark-submit'."
-                            )
+                                 "mode. Use the '-n' flag to ignore this argument if "
+                                 "using spark-submit.")
+    arg_parser.add_argument("-n", "--no-local",
+                            required=False,
+                            action="store_true",
+                            help="Flag for marking that the 'spark' CLI arguments "
+                                 "should be ignored if Spark configuration is given "
+                                 "via spark-submit or a Spark configuration.")
     args = arg_parser.parse_args()
 
     end_date_arg = None if not args.end_date else datetime.fromisoformat(args.end_date)
+
+    conf = SparkConf()
+    if not args.no_local:
+        conf.set("spark.driver.memory", args.spark_driver_memory) \
+            .setMaster(f"local[{args.n_cores}]")
+    spark_context = SparkContext(conf=conf)
 
     main(
         args.input_path,
         args.output_path,
         end_date_arg,
-        args.spark_memory,
-        args.n_cores
+        spark_context
     )

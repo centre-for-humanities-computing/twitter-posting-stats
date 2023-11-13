@@ -3,6 +3,7 @@ import re
 from typing import List
 
 import pytest
+import userstats
 
 from datamodels import MinimalTweet, TweetPublicMetrics
 from userstats import is_identifiable, average_daily_tweets, latest_tweet, earliest_tweet
@@ -122,4 +123,3 @@ class TestIsIdentifiable:
     def test_non_names(self):
         assert not is_identifiable("cool_guy13")
         assert not is_identifiable("nedmedsystemet")
-
