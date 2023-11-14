@@ -44,10 +44,10 @@ API. The Tweet objects should contain these fields as a minimum in this format:
 ```
 
 ## How to run
-Run the Spark app either with Python, e.g.:
+You can run the Spark app just with Python, e.g.:
 
 ```
-python main.py "input/examples_*.ndjson" --output-path output/example
+python main.py "input/examples_*.ndjson" --end-date "2023-01-31"
 ```
 
 Be mindful of quotes if you use a glob pattern.
@@ -57,5 +57,5 @@ configuration, in which case you should pass the `-n` (`--no-local`) to the Pyth
 script, e.g.:
 
 ```
-spark-submit --master 'local[32]' --driver-memory 64G main.py -n "input/examples_*.ndjson"
+spark-submit --master "local[32]" --driver-memory "64G" main.py -n "input/examples_*.ndjson" --end-date "2023-01-31"
 ```
