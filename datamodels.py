@@ -1,4 +1,5 @@
 import datetime
+import enum
 from datetime import date, datetime
 from dataclasses import dataclass
 
@@ -6,10 +7,12 @@ import dataclasses_json
 from dataclasses_json import dataclass_json
 from typing import List, Optional
 
-# Sets decoding format for JSON deserialization of dates in tweets
+# Sets encoding/decoding format for JSON (de-)serialization of dates in tweets and users
 date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
 dataclasses_json.cfg.global_config.decoders[datetime] = \
     lambda d: datetime.strptime(d, date_format)
+dataclasses_json.cfg.global_config.encoders[datetime] = \
+    lambda d: d.isoformat()
 
 
 @dataclass_json
@@ -65,11 +68,18 @@ class TweetPublicMetrics:
     reply_count: int
     like_count: int
     quote_count: int
-    impression_count: Optional[int] = -1
+    impression_count: int = -1
+
+
+class TweetType(enum.Enum):
+    ORIGINAL = "ORIGINAL"
+    RETWEET = "RETWEET"
+    REPLY = "REPLY"
+    QUOTED = "QUOTED"
 
 
 @dataclass(frozen=True)
-class MinimalTweet:
+class TweetBase:
     id: str
     text: str
     public_metrics: TweetPublicMetrics
@@ -85,18 +95,37 @@ class MinimalTweet:
 
 @dataclass_json
 @dataclass(frozen=True)
-class Tweet(MinimalTweet):
-    includes: Includes
+class MinimalTweet(TweetBase):
+    type: TweetType
+
+
+@dataclass_json
+@dataclass(frozen=True)
+class Tweet(TweetBase):
+    includes: Includes = None
+    referenced_tweets: Optional[List[dict]] = None
 
     def get_users(self):
         return self.includes.users
+
+    def tweet_type(self):
+        if not self.referenced_tweets:
+            return TweetType.ORIGINAL
+        elif self.referenced_tweets[0]['type'] == 'replied_to':
+            return TweetType.REPLY
+        elif self.referenced_tweets[0]['type'] == 'quoted':
+            return TweetType.QUOTED
+        elif self.referenced_tweets[0]['type'] == 'retweeted':
+            return TweetType.RETWEET
+        else:
+            raise ValueError(f"Unrecognized tweet type! {self.referenced_tweets}")
 
     def minimal_tweet(self):
         """
         :return: a :class:`MinimalTweet` from this Tweet object.
         """
         return MinimalTweet(self.id, self.text, self.public_metrics, self.created_at,
-                            self.author_id)
+                            self.author_id, self.tweet_type())
 
     def get_dated_author(self):
         for user in self.get_users():

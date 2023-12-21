@@ -4,14 +4,13 @@ import logging
 import os
 import shutil
 import time
-from datetime import date, datetime
 from functools import partial
 
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
 
-from datamodels import Tweet, TweetCollection, merge_tweet_collections
-from userstats import create_stats
+from datamodels import Tweet, TweetCollection, merge_tweet_collections, MinimalTweet
+from userstats import Stats
 
 
 def none_if_error(func):
@@ -28,7 +27,7 @@ def is_not_none(obj):
     return obj is not None
 
 
-def main(input_path: str, output_path: str, end_date: date, sc: SparkContext):
+def main(input_path: str, output_path: str, caching: bool, sc: SparkContext):
     if not output_path:
         output_path = "output/" + input_path
         logging.warning(f"No output path given. It will be %s", output_path)
@@ -42,26 +41,21 @@ def main(input_path: str, output_path: str, end_date: date, sc: SparkContext):
         .map(none_if_error(Tweet.from_json)) \
         .filter(is_not_none)
 
-    if not end_date:
-        logging.warning("'end_date' was not given as an argument, so it will be "
-                        "calculated which is quite slow!")
-        end_date = tweets.map(Tweet.get_creation_date).max()
-        logging.warning("'end_date' is %s. You can use this if you need to run "
-                        "the app again.", end_date)
+    if caching:
+        tweets = tweets.cache()
+
+    tweets.map(Tweet.minimal_tweet)\
+        .map(partial(MinimalTweet.to_json, ensure_ascii=False))\
+        .saveAsTextFile(output_path + "/minimal-tweets")
 
     tweets.map(none_if_error(Tweet.tweet_collection)) \
         .filter(is_not_none) \
         .keyBy(TweetCollection.get_user_id) \
         .reduceByKey(merge_tweet_collections) \
-        .mapValues(lambda tweet_collection:
-                   create_stats(
-                       tweet_collection.dated_user.get_user(),
-                       tweet_collection.tweets,
-                       end_date
-                   )) \
+        .mapValues(Stats.from_tweet_collection) \
         .values() \
         .map(partial(json.dumps, ensure_ascii=False)) \
-        .saveAsTextFile(output_path)
+        .saveAsTextFile(output_path + "/user-stats")
 
     print('Finished in ', time.perf_counter() - start)
 
@@ -74,11 +68,6 @@ if __name__ == '__main__':
                             required=False,
                             default=None,
                             help="Path for output folder.")
-    arg_parser.add_argument("--end-date",
-                            required=False,
-                            default=None,
-                            help="Latest date for tweets in the sample. The app is "
-                                 "significantly faster with this argument provided.")
     arg_parser.add_argument("--spark-driver-memory",
                             required=False,
                             default="12G",
@@ -90,6 +79,12 @@ if __name__ == '__main__':
                             help="Sets number of cores that Spark will use in local "
                                  "mode. Use the '-n' flag to ignore this argument if "
                                  "using spark-submit.")
+    arg_parser.add_argument("-c", "--caching",
+                            required=False,
+                            action="store_false",
+                            help="Flag for marking that RDDs can be cached. Can reduce"
+                                 "computation time significantly, but increases memory"
+                                 "load.")
     arg_parser.add_argument("-n", "--no-local",
                             required=False,
                             action="store_true",
@@ -97,8 +92,6 @@ if __name__ == '__main__':
                                  "should be ignored if Spark configuration is given "
                                  "via spark-submit or a Spark configuration.")
     args = arg_parser.parse_args()
-
-    end_date_arg = None if not args.end_date else datetime.fromisoformat(args.end_date)
 
     conf = SparkConf()
     if not args.no_local:
@@ -109,6 +102,6 @@ if __name__ == '__main__':
     main(
         args.input_path,
         args.output_path,
-        end_date_arg,
+        args.caching,
         spark_context
     )

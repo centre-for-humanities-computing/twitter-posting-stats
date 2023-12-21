@@ -5,27 +5,27 @@ from typing import List
 import pytest
 import userstats
 
-from datamodels import MinimalTweet, TweetPublicMetrics
+from datamodels import TweetBase, TweetPublicMetrics
 from userstats import is_identifiable, average_daily_tweets, latest_tweet, earliest_tweet
 
 
 class TestTweetStats:
 
-    january_first = MinimalTweet(
+    january_first = TweetBase(
         "1", "Very nice.", TweetPublicMetrics(1, 1, 1, 1),
         datetime.fromisoformat("2020-01-01"), "User"
     )
-    january_second = MinimalTweet(
+    january_second = TweetBase(
         "2", "Still nice.", TweetPublicMetrics(1, 1, 1, 1),
         datetime.fromisoformat("2020-01-02"), "User"
     )
-    january_third = MinimalTweet(
+    january_third = TweetBase(
         "3", "Screw 2020.", TweetPublicMetrics(1, 1, 1, 1),
         datetime.fromisoformat("2020-01-03"), "User"
     )
 
     @pytest.fixture
-    def example_tweets(self) -> List[MinimalTweet]:
+    def example_tweets(self) -> List[TweetBase]:
         return [
             TestTweetStats.january_first,
             TestTweetStats.january_second,

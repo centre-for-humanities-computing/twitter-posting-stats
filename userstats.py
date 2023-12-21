@@ -4,56 +4,52 @@ from collections import Counter
 from datetime import datetime
 from typing import List, Union
 
-from datamodels import User, Tweet, MinimalTweet
+from datamodels import User, Tweet, TweetBase, TweetType, MinimalTweet, TweetCollection
 
 
-def create_stats(user: User, tweets: List[Tweet], end_date: datetime):
-    # Account creation date (possible?)
-    creation_date = user.created_at
+class Stats(dict):
+    def __init__(self, user: User, tweets: List[MinimalTweet]):
+        super().__init__()
 
-    # Date of first tweet
-    first_tweet = earliest_tweet(tweets).created_at
+        # identity
+        self.id = user.id
+        self.user_name = user.username
+        self.display_name = user.name
+        self.verified = user.verified
+        self.identifiable = is_identifiable(user.name)
 
-    # Date of last tweet
-    last_tweet = latest_tweet(tweets).created_at
+        # dates
+        self.created_at = user.created_at.isoformat()
+        self.first_tweet = earliest_tweet(tweets).created_at.isoformat()
+        self.last_tweet = latest_tweet(tweets).created_at.isoformat()
 
-    # Av. daily tweets
-    avg_daily_tweets = average_daily_tweets(len(tweets), creation_date, end_date)
+        # tweet counts
+        self.n_tweets = len(tweets)
+        self.n_orig_tweets = sum(1 for t in tweets if t.type == TweetType.ORIGINAL)
+        self.n_replies = sum(1 for t in tweets if t.type == TweetType.REPLY)
+        self.n_quotes = sum(1 for t in tweets if t.type == TweetType.QUOTED)
+        self.n_retweets = sum(1 for t in tweets if t.type == TweetType.RETWEET)
+        self.hashtags = [(k, v) for k, v in Counter(get_hashtags(tweets)).most_common()]
 
-    # # following
-    following = user.public_metrics.following_count
-    followers = user.public_metrics.followers_count
+        self.following = user.public_metrics.following_count
+        self.followers = user.public_metrics.followers_count
 
-    # top 10 hashtags
-    top10_hashtags = [k for k, v in Counter(get_hashtags(tweets)).most_common(10)]
+    def __getattr__(self, attr):
+        return self[attr]
 
-    # Verified status? (prior to “Twitter blue”)
-    verified = user.verified
+    def __setattr__(self, key, value):
+        self[key] = value
 
-    # Maybe proxy for “non-anonymous” - does the display name contain proper name,
-    # one from given name list one from surname list
-    identifiable = is_identifiable(user.name)
-
-    return {
-        "userName": user.username,
-        "displayName": user.name,
-        "creationDate": creation_date.isoformat(),
-        "firstTweet": first_tweet.isoformat(),
-        "lastTweet": last_tweet.isoformat(),
-        "avgDailyTweets": avg_daily_tweets,
-        "following": following,
-        "followers": followers,
-        "top10Hashtags": top10_hashtags,
-        "verified": verified,
-        "identifiable": identifiable
-    }
+    @classmethod
+    def from_tweet_collection(cls, tweet_collection: TweetCollection):
+        return cls(tweet_collection.get_user(), tweet_collection.tweets)
 
 
-def earliest_tweet(tweets: List[Union[Tweet, MinimalTweet]]):
+def earliest_tweet(tweets: List[Union[Tweet, TweetBase]]):
     return min(tweets, key=Tweet.get_creation_date)
 
 
-def latest_tweet(tweets: List[Union[Tweet, MinimalTweet]]):
+def latest_tweet(tweets: List[Union[Tweet, TweetBase]]):
     return max(tweets, key=Tweet.get_creation_date)
 
 
@@ -71,7 +67,7 @@ def average_daily_tweets(n_tweets: int, start_date: datetime, end_date: datetime
 hashtag = re.compile(r"#(?!\d)\w+")
 
 
-def get_hashtags(tweets: List[Tweet]):
+def get_hashtags(tweets: List[MinimalTweet]):
     return [match for tweet in tweets for match in re.findall(hashtag, tweet.text)]
 
 
