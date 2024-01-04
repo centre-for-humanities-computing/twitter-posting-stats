@@ -2,3 +2,4 @@ dataclasses_json
 pyspark
 dacy
 pytest
+matplotlib

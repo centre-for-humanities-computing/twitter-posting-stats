@@ -1,10 +1,10 @@
 import datetime
 import enum
 from datetime import date, datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import dataclasses_json
-from dataclasses_json import dataclass_json
+from dataclasses_json import dataclass_json, config
 from typing import List, Optional
 
 # Sets encoding/decoding format for JSON (de-)serialization of dates in tweets and users
@@ -63,6 +63,12 @@ class Includes:
 
 @dataclass_json
 @dataclass(frozen=True)
+class Entities:
+    hashtags: Optional[List[dict]] = None
+
+
+@dataclass_json
+@dataclass(frozen=True)
 class TweetPublicMetrics:
     retweet_count: int
     reply_count: int
@@ -86,6 +92,9 @@ class TweetBase:
     created_at: datetime
     author_id: str
 
+    def get_id(self):
+        return self.id
+
     def get_author_id(self):
         return self.author_id
 
@@ -97,16 +106,24 @@ class TweetBase:
 @dataclass(frozen=True)
 class MinimalTweet(TweetBase):
     type: TweetType
+    hashtags: Optional[List[str]] = field(metadata=config(exclude=lambda x: x is None),
+                                          default=None)
 
 
 @dataclass_json
 @dataclass(frozen=True)
 class Tweet(TweetBase):
-    includes: Includes = None
+    includes: Includes
     referenced_tweets: Optional[List[dict]] = None
+    entities: Optional[Entities] = None
 
     def get_users(self):
         return self.includes.users
+
+    def get_hashtags(self) -> Optional[List[str]]:
+        if not self.entities or not self.entities.hashtags:
+            return None
+        return [hashtag['tag'].lower() for hashtag in self.entities.hashtags]
 
     def tweet_type(self):
         if not self.referenced_tweets:
@@ -125,7 +142,7 @@ class Tweet(TweetBase):
         :return: a :class:`MinimalTweet` from this Tweet object.
         """
         return MinimalTweet(self.id, self.text, self.public_metrics, self.created_at,
-                            self.author_id, self.tweet_type())
+                            self.author_id, self.tweet_type(), self.get_hashtags())
 
     def get_dated_author(self):
         for user in self.get_users():

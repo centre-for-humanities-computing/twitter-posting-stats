@@ -29,17 +29,21 @@ def is_not_none(obj):
 
 def main(input_path: str, output_path: str, caching: bool, sc: SparkContext):
     if not output_path:
-        output_path = "output/" + input_path
-        logging.warning(f"No output path given. It will be %s", output_path)
+        output_path = "output/" + os.path.basename(input_path)
+        logging.warning("No output path given. It will be %s", output_path)
     if os.path.exists(output_path):
-        logging.warning(f"Removing %s", output_path)
+        logging.warning("Removing %s", output_path)
         shutil.rmtree(output_path)
 
     start = time.perf_counter()
 
+    # deduplication is done based on IDs instead of comparing the whole tweets
     tweets = sc.textFile(input_path) \
         .map(none_if_error(Tweet.from_json)) \
-        .filter(is_not_none)
+        .filter(is_not_none) \
+        .keyBy(Tweet.get_id) \
+        .reduceByKey(lambda a, b: a) \
+        .values()
 
     if caching:
         tweets = tweets.cache()
