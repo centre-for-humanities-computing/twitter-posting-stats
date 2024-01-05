@@ -29,7 +29,6 @@ class Stats(dict):
         self.n_replies = sum(1 for t in tweets if t.type == TweetType.REPLY)
         self.n_quotes = sum(1 for t in tweets if t.type == TweetType.QUOTED)
         self.n_retweets = sum(1 for t in tweets if t.type == TweetType.RETWEET)
-        self.hashtags = [(k, v) for k, v in Counter(get_hashtags(tweets)).most_common()]
 
         self.following = user.public_metrics.following_count
         self.followers = user.public_metrics.followers_count
@@ -62,13 +61,6 @@ def average_daily_tweets(n_tweets: int, start_date: datetime, end_date: datetime
         )
     time_delta = end_date - start_date
     return n_tweets / (time_delta.days + 1)
-
-
-hashtag = re.compile(r"#(?!\d)\w+")
-
-
-def get_hashtags(tweets: List[MinimalTweet]):
-    return [match for tweet in tweets for match in re.findall(hashtag, tweet.text)]
 
 
 first_names = {n.lower() for n in dacy.datasets.danish_names()["first_name"]}

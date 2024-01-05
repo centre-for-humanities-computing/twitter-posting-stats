@@ -9,7 +9,7 @@ from functools import partial
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
 
-from datamodels import Tweet, TweetCollection, merge_tweet_collections, MinimalTweet
+from datamodels import Tweet, TweetCollection, MinimalTweet
 from userstats import Stats
 
 
@@ -55,13 +55,13 @@ def main(input_path: str, output_path: str, caching: bool, sc: SparkContext):
     tweets.map(none_if_error(Tweet.tweet_collection)) \
         .filter(is_not_none) \
         .keyBy(TweetCollection.get_user_id) \
-        .reduceByKey(merge_tweet_collections) \
+        .reduceByKey(TweetCollection.merge) \
         .mapValues(Stats.from_tweet_collection) \
         .values() \
         .map(partial(json.dumps, ensure_ascii=False)) \
         .saveAsTextFile(output_path + "/user-stats")
 
-    print('Finished in ', time.perf_counter() - start)
+    print('Finished in', round(time.perf_counter() - start, 2))
 
 
 if __name__ == '__main__':
@@ -83,22 +83,27 @@ if __name__ == '__main__':
                             help="Sets number of cores that Spark will use in local "
                                  "mode. Use the '-n' flag to ignore this argument if "
                                  "using spark-submit.")
-    arg_parser.add_argument("-c", "--caching",
+    arg_parser.add_argument("-c", "--no-caching",
                             required=False,
                             action="store_false",
-                            help="Flag for marking that RDDs can be cached. Can reduce"
-                                 "computation time significantly, but increases memory"
-                                 "load.")
+                            help="Flag for marking that RDDs should not be cached. Can "
+                                 "increase computation time, but decrease memory "
+                                 "pressure.")
     arg_parser.add_argument("-n", "--no-local",
                             required=False,
-                            action="store_true",
+                            action="store_false",
                             help="Flag for marking that the 'spark' CLI arguments "
                                  "should be ignored if Spark configuration is given "
                                  "via spark-submit or a Spark configuration.")
     args = arg_parser.parse_args()
 
+    # 'store_false' flags are true by default, but false if passed. For readability,
+    # assign these to semantically proper variable names.
+    caching = args.no_caching
+    local = args.no_local
+
     conf = SparkConf()
-    if not args.no_local:
+    if local:
         conf.set("spark.driver.memory", args.spark_driver_memory) \
             .setMaster(f"local[{args.n_cores}]")
     spark_context = SparkContext(conf=conf)
@@ -106,6 +111,6 @@ if __name__ == '__main__':
     main(
         args.input_path,
         args.output_path,
-        args.caching,
+        caching,
         spark_context
     )
