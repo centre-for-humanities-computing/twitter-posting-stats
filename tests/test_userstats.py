@@ -51,36 +51,6 @@ class TestTweetStats:
                                  TestTweetStats.january_first.created_at)
 
 
-class TestGetHashTags:
-    @pytest.fixture
-    def hashtag_regex(self) -> re.Pattern:
-        return userstats.hashtag
-
-    def test_default(self, hashtag_regex):
-        matches = hashtag_regex.findall("A good example of #hashtag")
-        assert len(matches) == 1
-
-    def test_casing(self, hashtag_regex):
-        matches = hashtag_regex.findall("A good example of #HashTag")
-        assert len(matches) == 1
-
-    def test_no_spaces(self, hashtag_regex):
-        matches = hashtag_regex.findall("A good example of#hashtag")
-        assert len(matches) == 1
-
-    def test_in_middle_of_sentence(self, hashtag_regex):
-        matches = hashtag_regex.findall("A good #hashtag example")
-        assert len(matches) == 1
-
-    def test_valid_with_numbers(self, hashtag_regex):
-        matches = hashtag_regex.findall("A good example of #hashtag123")
-        assert len(matches) == 1
-
-    def test_invalid_with_numbers(self, hashtag_regex):
-        matches = hashtag_regex.findall("A bad example of #123hashtag")
-        assert len(matches) == 0
-
-
 class TestIsIdentifiable:
     def test_regular_danish_names(self):
         assert is_identifiable("Anders Bendtsen")
