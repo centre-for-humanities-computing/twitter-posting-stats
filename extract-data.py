@@ -1,5 +1,4 @@
 import argparse
-import json
 import logging
 import os
 import shutil
@@ -9,8 +8,7 @@ from functools import partial
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
 
-from datamodels import Tweet, TweetCollection, MinimalTweet
-from userstats import Stats
+from postingstats.datamodels import Tweet, MinimalTweet, UserByDate, User
 
 
 def none_if_error(func):
@@ -50,16 +48,16 @@ def main(input_path: str, output_path: str, caching: bool, sc: SparkContext):
 
     tweets.map(Tweet.minimal_tweet)\
         .map(partial(MinimalTweet.to_json, ensure_ascii=False))\
-        .saveAsTextFile(output_path + "/minimal-tweets")
+        .saveAsTextFile(output_path + "/tweets")
 
-    tweets.map(none_if_error(Tweet.tweet_collection)) \
+    tweets.flatMap(none_if_error(Tweet.get_dated_users)) \
         .filter(is_not_none) \
-        .keyBy(TweetCollection.get_user_id) \
-        .reduceByKey(TweetCollection.merge) \
-        .mapValues(Stats.from_tweet_collection) \
+        .keyBy(UserByDate.get_user_id) \
+        .reduceByKey(UserByDate.latest_dated_user) \
         .values() \
-        .map(partial(json.dumps, ensure_ascii=False)) \
-        .saveAsTextFile(output_path + "/user-stats")
+        .map(UserByDate.get_user) \
+        .map(partial(User.to_json, ensure_ascii=False)) \
+        .saveAsTextFile(output_path + "/users")
 
     print('Finished in', round(time.perf_counter() - start, 2))
 
