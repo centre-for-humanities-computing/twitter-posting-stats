@@ -1,8 +1,10 @@
 import gzip
 import glob
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlite3 import Connection
 from typing import Iterator
+
+import pytz
 
 
 class Inserter:
@@ -48,4 +50,4 @@ def iter_lines(fp: str) -> Iterator[str]:
 
 
 def iso_to_posix(iso_time: str) -> int:
-    return int(datetime.fromisoformat(iso_time).timestamp())
+    return int(datetime.fromisoformat(iso_time).replace(tzinfo=pytz.utc).timestamp())
