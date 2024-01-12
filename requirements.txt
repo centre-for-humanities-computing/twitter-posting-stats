@@ -1,5 +1,8 @@
 dataclasses_json
-pyspark
-dacy
-pytest
+pyspark~=3.5.0
+dacy~=2.7.1
+pytest~=7.4.3
 matplotlib
+modin
+jsonlines~=4.0.0
+tqdm~=4.65.2

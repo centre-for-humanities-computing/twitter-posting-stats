@@ -6,4 +6,7 @@ venv
 
 data
 output
+*.db
+
 *.pytest_cache
+*.egg-info

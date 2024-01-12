@@ -36,12 +36,6 @@ class User:
     name: str
     created_at: datetime
 
-    def get_id(self):
-        return self.get_id
-
-    def get_creation_date(self):
-        return self.created_at
-
 
 @dataclass(frozen=True)
 class UserByDate:
@@ -82,10 +76,19 @@ class TweetPublicMetrics:
 
 
 class TweetType(enum.Enum):
-    ORIGINAL = "ORIGINAL"
-    RETWEET = "RETWEET"
-    REPLY = "REPLY"
-    QUOTED = "QUOTED"
+    ORIGINAL = 0
+    RETWEET = 1
+    REPLY = 2
+    QUOTED = 3
+
+    @staticmethod
+    def names():
+        return [t.name for t in TweetType]
+
+
+# use names instead of values for JSON de- and encoding for readability
+dataclasses_json.cfg.global_config.decoders[TweetType] = lambda t: TweetType[t]
+dataclasses_json.cfg.global_config.encoders[TweetType] = lambda t: t.name
 
 
 @dataclass(frozen=True)
@@ -140,7 +143,7 @@ class Tweet(TweetBase):
         else:
             raise ValueError(f"Unrecognized tweet type! {self.referenced_tweets}")
 
-    def minimal_tweet(self):
+    def minimal_tweet(self) -> MinimalTweet:
         """
         :return: a :class:`MinimalTweet` from this Tweet object.
         """
@@ -155,35 +158,5 @@ class Tweet(TweetBase):
             f"No included users correspond to author of tweet {self.id}."
         )
 
-    def tweet_collection(self):
-        return TweetCollection([self.minimal_tweet()], self.get_dated_author())
-
-
-@dataclass
-class TweetCollection:
-    tweets: List[MinimalTweet]
-    dated_user: UserByDate
-
-    def get_user(self):
-        return self.dated_user.user
-
-    def get_user_id(self):
-        return self.dated_user.get_user_id()
-
-    @staticmethod
-    def merge(coll1: 'TweetCollection', coll2: 'TweetCollection') -> 'TweetCollection':
-        """
-        Merges two :class:`TweetCollection`s into one. Favours the latest dated user.
-
-        Raises a ValueError if the users do not have the same ID.
-        :param coll1:
-        :param coll2:
-        :return: a new, merged :class:`TweetCollection`
-        """
-        if coll1.get_user_id() != coll2.get_user_id():
-            raise ValueError("Cannot merge Tweet collections from different users.")
-
-        return TweetCollection(
-            coll1.tweets + coll2.tweets,
-            max(coll1.dated_user, coll2.dated_user, key=lambda u: u.date)
-        )
+    def get_dated_users(self):
+        return [UserByDate(self.created_at, user) for user in self.get_users()]

@@ -1,12 +1,12 @@
 # Twitter posting stats
 
-This project is for gathering by-user posting statistics from Twitter scrapes. Since
+This project is for gathering posting statistics from Twitter scrapes. Since
 those scrapes can get pretty big, `pyspark` is used. The data amounts are probably not
 big enough to merit large Spark clusters, but in principle this should scale to bigger
 and more machines.
 
 ## Input data
-The input data should be line-delimited JSON files of Tweets as scraped via the Twitter
+The input data should be line-delimited JSON files of Tweets scraped via the Twitter
 API. The Tweet objects should contain these fields as a minimum in this format:
 
 ```
@@ -44,10 +44,18 @@ API. The Tweet objects should contain these fields as a minimum in this format:
 ```
 
 ## How to run
+
+First, install the package:
+
+```
+pip install -e .
+```
+
+### Extract data from scrapes
 You can run the Spark app just with Python, e.g.:
 
 ```
-python main.py "input/examples_*.ndjson""
+python extract-data.py "input/examples_*.ndjson""
 ```
 
 Be mindful of quotes if you use a glob pattern.
@@ -57,5 +65,20 @@ configuration, in which case you should pass the `-n` (`--no-local`) to the Pyth
 script, e.g.:
 
 ```
-spark-submit --master "local[32]" --driver-memory "64G" main.py -n "input/examples_*.ndjson"
+spark-submit --master "local[32]" --driver-memory "64G" extract-data.py -n "input/examples_*.ndjson"
 ```
+
+### Write extracted data to SQLite database
+You can write the extracted data (tweets and users) to a SQLite database with the 
+scripts in `database-setup`, e.g. 
+
+```
+python database-setup/tweet-tables.py "out/examples/tweets/*" twitter-example
+```
+
+which will then create a `twitter-example.db` file.
+
+### Perform analysis on tweets and users
+
+[...]
+
