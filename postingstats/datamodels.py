@@ -86,7 +86,7 @@ class TweetType(enum.Enum):
         return [t.name for t in TweetType]
 
 
-# use names instead of values for JSON de- and encoding
+# use names instead of values for JSON de- and encoding for readability
 dataclasses_json.cfg.global_config.decoders[TweetType] = lambda t: TweetType[t]
 dataclasses_json.cfg.global_config.encoders[TweetType] = lambda t: t.name
 

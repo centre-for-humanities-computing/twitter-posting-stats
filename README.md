@@ -45,6 +45,12 @@ API. The Tweet objects should contain these fields as a minimum in this format:
 
 ## How to run
 
+First, install the package:
+
+```
+pip install -e .
+```
+
 ### Extract data from scrapes
 You can run the Spark app just with Python, e.g.:
 

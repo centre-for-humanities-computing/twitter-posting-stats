@@ -1,63 +1,14 @@
 import gzip
-import sqlite3
 import glob
 from datetime import datetime
-from queue import Queue
 from sqlite3 import Connection
-from threading import Thread
-from typing import List, Iterator
-
-
-class Task:
-    def __init__(self, query: str, items: List[dict], conn: Connection):
-        self.query = query
-        self.items = items
-        self.conn = conn
-
-    def execute(self):
-        self.conn.executemany(self.query, self.items)
-        self.conn.commit()
-
-
-class InsertionContext:
-    STOP_SIGNAL = object()
-
-    def __init__(self, db_name: str):
-        self.db_name = db_name
-        self.task_queue = Queue(maxsize=20)
-        self.inserter_thread = Thread(target=self._db_worker, daemon=True)
-
-    def add_task(self, task: Task):
-        self.task_queue.put(task)
-
-    def _db_worker(self):
-        with sqlite3.connect(self.db_name) as conn:
-            while True:
-                task = self.task_queue.get()
-                if task is InsertionContext.STOP_SIGNAL:
-                    break
-                try:
-                    task.conn = conn
-                    task.execute()
-                except Exception as e:
-                    print("Error:", e)
-                finally:
-                    self.task_queue.task_done()
-
-    def __enter__(self):
-        self.inserter_thread.start()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.task_queue.put(InsertionContext.STOP_SIGNAL)
-        self.task_queue.join()
-        self.inserter_thread.join()
+from typing import Iterator
 
 
 class Inserter:
 
-    def __init__(self, connection: Connection, table: str, buffer_size=250_000,
-                 skip=None, insertion_context: InsertionContext = None):
+    def __init__(self, connection: Connection, table: str, buffer_size=200_000,
+                 skip=None):
         if skip is None:
             skip = set()
         self._connection = connection
@@ -70,10 +21,6 @@ class Inserter:
                        f'({column_names}) VALUES ({placeholders})')
         self._items = []
         self._buffer_size = buffer_size
-        self._insertion_context = insertion_context
-
-    def _column_values(self, item: dict):
-        return {}
 
     def insert(self, item: dict):
         self._items.append(item)
@@ -81,15 +28,9 @@ class Inserter:
             self._insert_many()
 
     def _insert_many(self):
-        if self._insertion_context:
-            self._insertion_context.add_task(
-                Task(self._query, self._items, self._connection)
-            )
-            self._items = []
-        else:
-            self._connection.executemany(self._query, self._items)
-            self._connection.commit()
-            self._items.clear()
+        self._connection.executemany(self._query, self._items)
+        self._connection.commit()
+        self._items.clear()
 
     def __enter__(self):
         return self
