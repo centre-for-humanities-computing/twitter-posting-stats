@@ -10,7 +10,7 @@ from typing import List, Optional
 # Sets encoding/decoding format for JSON (de-)serialization of dates in tweets and users
 date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
 dataclasses_json.cfg.global_config.decoders[datetime] = \
-    lambda d: datetime.strptime(d, date_format)
+    lambda d: datetime.fromisoformat(d[:-1] if d.endswith('Z') else d)
 dataclasses_json.cfg.global_config.encoders[datetime] = \
     lambda d: d.isoformat()
 
@@ -82,8 +82,8 @@ class TweetType(enum.Enum):
     QUOTED = 3
 
     @staticmethod
-    def names():
-        return [t.name for t in TweetType]
+    def names(lower=True):
+        return [(t.name.lower() if lower else t.name) for t in TweetType]
 
 
 # use names instead of values for JSON de- and encoding for readability
